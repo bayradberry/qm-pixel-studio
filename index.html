@@ -391,6 +391,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
   <div class="card">
     <h2>Device</h2>
     <div class="row"><span class="chip" id="infoW">size ?</span><span class="chip" id="infoV">firmware ?</span><span class="chip" id="infoN">name ?</span></div>
+    <div class="row" style="margin-top:10px"><span class="chip" id="infoSaved">no saved panel</span><label class="row"><input type="checkbox" id="autoConn" checked> reconnect automatically when the page opens</label><button id="forgetDev" class="danger">Forget saved panel</button></div>
     <div class="grid2" style="margin-top:10px">
       <div class="field"><label>Panel width override</label><input type="number" id="ovW" placeholder="auto (36)"></div>
       <div class="field"><label>Panel height override</label><input type="number" id="ovH" placeholder="auto (12)"></div>
@@ -494,13 +495,28 @@ const BLE={
     throw lastErr||new Error("Bluetooth write failed");
   },
   run(fn){ const p=this.chain.then(fn,fn); this.chain=p.catch(()=>{}); return p; },
-  async connect(all=false){
+  /* remembered panel: Bluefy (and Chrome with the permissions flag) can reconnect without the chooser */
+  async remembered(){
+    if(!navigator.bluetooth||!navigator.bluetooth.getDevices) return null;
+    let list=[]; try{ list=await navigator.bluetooth.getDevices(); }catch(e){ return null; }
+    const id=LS.get("devId",null);
+    return list.find(d=>d.id===id) || list.find(d=>/^QM/i.test((d.name||"").trim())) || null;
+  },
+  async connect(all=false,silent=false){
     if(!navigator.bluetooth){ toast("Bluetooth isn't available in this browser"); return; }
+    let dev=null;
+    if(!all){ const r=await this.remembered(); if(r){ setStatus("busy","Reconnecting to "+(r.name||"panel").trim()+"…");
+        try{ await Promise.race([this.attach(r),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),9000))]); return; }
+        catch(e){ log("Saved panel didn't answer ("+(e.message||e)+"); showing the device list."); try{r.gatt.disconnect();}catch(_){} if(silent){setStatus("off","Offline");return;} } } }
+    if(silent){ setStatus("off","Offline"); return; }
     setStatus("busy","Choose your panel…");
-    let dev;
-    const opts=all?{acceptAllDevices:true,optionalServices:[SVC]}:{filters:[{namePrefix:"QM-LED"},{namePrefix:"QM"},{services:[SVC]}],optionalServices:[SVC]};
+    const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+    const opts=(all||ios)?{acceptAllDevices:true,optionalServices:[SVC]}:{filters:[{namePrefix:"QM-LED"},{namePrefix:"QM"},{services:[SVC]}],optionalServices:[SVC]};
     try{ dev=await navigator.bluetooth.requestDevice(opts); }
     catch(e){ if(e&&e.name==="NotFoundError"){setStatus("off","Offline");return;} throw e; }
+    await this.attach(dev);
+  },
+  async attach(dev){
     this.dev=dev; dev.addEventListener("gattserverdisconnected",()=>{this.wr=null;setStatus("off","Disconnected");$("devInfo").textContent="disconnected";});
     setStatus("busy","Connecting…");
     const srv=await dev.gatt.connect(); let svc; try{ svc=await srv.getPrimaryService(SVC); }catch(e){ try{dev.gatt.disconnect();}catch(_){} throw new Error("“"+(dev.name||"That device")+"” isn\u2019t the LED panel (no FFF0 service). Pick the one named QM-LED."); }
@@ -519,7 +535,7 @@ const BLE={
     });
     $("infoW").textContent=S.w+" × "+S.h; $("infoN").textContent=dev.name||"QM-LED";
     $("devInfo").textContent=(dev.name||"QM-LED").trim()+" · "+S.w+"×"+S.h;
-    setStatus("ok","Connected"); log("Connected to "+(dev.name||"")+" — "+S.w+"×"+S.h); resizeAll();
+    setStatus("ok","Connected"); log("Connected to "+(dev.name||"")+" — "+S.w+"×"+S.h); LS.set("devId",dev.id); LS.set("devName",(dev.name||"").trim()); $("infoSaved").textContent="saved panel: "+((dev.name||"QM-LED").trim()); resizeAll();
   },
   /* header, then each frame after the panel acknowledges the previous packet */
   upload(mode,payloads,{speed=10,b19=null,tag=""}={}){
@@ -931,6 +947,10 @@ function init(){
   if(!navigator.bluetooth){$("nobt").style.display="block";$("btnConnect").disabled=true;$("btnConnectAll").disabled=true;}
   $("btnConnect").onclick=()=>BLE.connect().catch(err);
   $("btnConnectAll").onclick=()=>BLE.connect(true).catch(err);
+  { const n=LS.get("devName",null); if(n) $("infoSaved").textContent="saved panel: "+n; }
+  $("autoConn").checked=LS.get("autoConn",true); $("autoConn").onchange=()=>LS.set("autoConn",$("autoConn").checked);
+  $("forgetDev").onclick=async()=>{ try{ const r=await BLE.remembered(); if(r&&r.forget) await r.forget(); }catch(e){} LS.set("devId",null); LS.set("devName",null); $("infoSaved").textContent="no saved panel"; toast("Forgot the saved panel"); };
+  if(navigator.bluetooth&&LS.get("autoConn",true)&&LS.get("devId",null)) setTimeout(()=>BLE.connect(false,true).catch(()=>setStatus("off","Offline")),600);
   document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
   document.addEventListener("input",e=>{if(e.target.type==="range")syncVals();});
   setupEditor();
