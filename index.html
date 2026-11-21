@@ -96,6 +96,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
     <span class="chip" id="devInfo">not connected</span>
     <span><span class="dot" id="dot"></span><span id="status" class="small">Offline</span></span>
     <button class="primary" id="btnConnect">Connect</button>
+    <button id="btnConnectAll" title="Use this if the panel does not show up in the list">Not listed? Show all</button>
   </div>
   <div id="previewWrap"><canvas id="preview" width="720" height="240"></canvas></div>
 </header>
@@ -493,15 +494,16 @@ const BLE={
     throw lastErr||new Error("Bluetooth write failed");
   },
   run(fn){ const p=this.chain.then(fn,fn); this.chain=p.catch(()=>{}); return p; },
-  async connect(){
+  async connect(all=false){
     if(!navigator.bluetooth){ toast("Bluetooth isn't available in this browser"); return; }
     setStatus("busy","Choose your panel…");
     let dev;
-    try{ dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"QM-LED"},{services:[SVC]}],optionalServices:[SVC]}); }
+    const opts=all?{acceptAllDevices:true,optionalServices:[SVC]}:{filters:[{namePrefix:"QM-LED"},{namePrefix:"QM"},{services:[SVC]}],optionalServices:[SVC]};
+    try{ dev=await navigator.bluetooth.requestDevice(opts); }
     catch(e){ if(e&&e.name==="NotFoundError"){setStatus("off","Offline");return;} throw e; }
     this.dev=dev; dev.addEventListener("gattserverdisconnected",()=>{this.wr=null;setStatus("off","Disconnected");$("devInfo").textContent="disconnected";});
     setStatus("busy","Connecting…");
-    const srv=await dev.gatt.connect(); const svc=await srv.getPrimaryService(SVC);
+    const srv=await dev.gatt.connect(); let svc; try{ svc=await srv.getPrimaryService(SVC); }catch(e){ try{dev.gatt.disconnect();}catch(_){} throw new Error("“"+(dev.name||"That device")+"” isn\u2019t the LED panel (no FFF0 service). Pick the one named QM-LED."); }
     this.wr=await svc.getCharacteristic(WR); this.nt=await svc.getCharacteristic(NT);
     this.nt.addEventListener("characteristicvaluechanged",e=>this.onNotify(e));
     try{ await this.nt.startNotifications(); }catch(e){ log("startNotifications failed once: "+e.message); await sleep(500); await this.nt.startNotifications(); }
@@ -926,8 +928,9 @@ function showTab(name){document.querySelectorAll(".tab").forEach(t=>t.classList.
 function syncVals(){document.querySelectorAll("input[type=range]").forEach(r=>{const v=$(r.id+"V");if(v)v.textContent=r.id==="gam"?(+r.value).toFixed(1):r.value;});}
 function resizeAll(){renderEditor();}
 function init(){
-  if(!navigator.bluetooth){$("nobt").style.display="block";$("btnConnect").disabled=true;}
+  if(!navigator.bluetooth){$("nobt").style.display="block";$("btnConnect").disabled=true;$("btnConnectAll").disabled=true;}
   $("btnConnect").onclick=()=>BLE.connect().catch(err);
+  $("btnConnectAll").onclick=()=>BLE.connect(true).catch(err);
   document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
   document.addEventListener("input",e=>{if(e.target.type==="range")syncVals();});
   setupEditor();
