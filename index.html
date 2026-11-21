@@ -506,8 +506,9 @@ const BLE={
     if(!navigator.bluetooth){ toast("Bluetooth isn't available in this browser"); return; }
     let dev=null;
     if(!all){ const r=await this.remembered(); if(r){ setStatus("busy","Reconnecting to "+(r.name||"panel").trim()+"…");
-        try{ await Promise.race([this.attach(r),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),9000))]); return; }
-        catch(e){ log("Saved panel didn't answer ("+(e.message||e)+"); showing the device list."); try{r.gatt.disconnect();}catch(_){} if(silent){setStatus("off","Offline");return;} } } }
+        if(r.watchAdvertisements){ try{ await Promise.race([new Promise(res=>{r.addEventListener("advertisementreceived",res,{once:true});r.watchAdvertisements().catch(res);}),sleep(5000)]); }catch(_){} }
+        try{ await this.attach(r); return; }
+        catch(e){ this.wr=null; log("Saved panel didn't answer ("+(e.message||e)+"); showing the device list."); try{r.gatt.disconnect();}catch(_){} if(silent){setStatus("off","Offline");$("devInfo").textContent="tap Connect";return;} } } }
     if(silent){ setStatus("off","Offline"); return; }
     setStatus("busy","Choose your panel…");
     const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
@@ -521,15 +522,17 @@ const BLE={
     setStatus("busy","Connecting…");
     const srv=await dev.gatt.connect(); let svc; try{ svc=await srv.getPrimaryService(SVC); }catch(e){ try{dev.gatt.disconnect();}catch(_){} throw new Error("“"+(dev.name||"That device")+"” isn\u2019t the LED panel (no FFF0 service). Pick the one named QM-LED."); }
     this.wr=await svc.getCharacteristic(WR); this.nt=await svc.getCharacteristic(NT);
-    this.nt.addEventListener("characteristicvaluechanged",e=>this.onNotify(e));
+    if(!this._nh) this._nh=e=>this.onNotify(e); if(this.nt.removeEventListener) this.nt.removeEventListener("characteristicvaluechanged",this._nh); this.nt.addEventListener("characteristicvaluechanged",this._nh);
     try{ await this.nt.startNotifications(); }catch(e){ log("startNotifications failed once: "+e.message); await sleep(500); await this.nt.startNotifications(); }
     const pp=this.wr.properties||{}; log("Write characteristic supports: "+["write","writeWithoutResponse"].filter(k=>pp[k]).join(", "));
     await sleep(300);
     await this.run(async()=>{
-      this.drain(); await this.write(P.handshake()); let r=await this.wait(2500);
-      if(r && String.fromCharCode(...r).includes("CRC_Error")){ await this.write(P.handshake()); r=await this.wait(2500); }
+      this.drain(); await this.write(P.handshake()); let r=await this.wait(2000);
+      if(!r || String.fromCharCode(...r).includes("CRC_Error")){ await this.write(P.handshake()); r=await this.wait(2000); }
+      if(!r){ this.wr=null; try{dev.gatt.disconnect();}catch(_){} throw new Error("The panel didn't answer"); }
       await this.write(P.info()); let info=null;
       for(let i=0;i<3;i++){ const x=await this.wait(2500); if(x&&(x.length===28||x.length===8)){info=x;break;} }
+      if(!r && !info){ this.wr=null; try{dev.gatt.disconnect();}catch(_){} throw new Error("The panel didn't answer"); }
       if(info&&info.length>=8){ const n=info.length; S.w=info[n-5]*256+info[n-4]||36; S.h=info[n-3]*256+info[n-2]||12;
         $("infoV").textContent="firmware "+hexs(info.slice(n-8,n-5)); }
     });
