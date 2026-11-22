@@ -341,6 +341,11 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
     </div>
   </div>
   <div class="card">
+    <h2>Desert night drive</h2>
+    <p class="small">Moonlit desert highway: long straights, three curves, cacti, bushes and road signs in the headlights. 1200 frames (about 84 s), loops seamlessly.</p>
+    <div class="row"><button id="dnPreview">Preview</button><button class="primary" id="dnSend">Send to panel</button><span class="small" id="dnInfo"></span></div>
+  </div>
+  <div class="card">
     <h2>Route 749 warp</h2>
     <p class="small">About 47 s of neon rainbow stripes moving out from the center, then "Route" and "749" fly in, hold 0.3 s each, and fly past. Stripes clear behind each word (plus 6 columns each side). 720 frames.</p>
     <div class="row">
@@ -437,7 +442,10 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
   </div>
   <div class="card">
     <h2>Color &amp; output</h2>
-    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="1"></div>
+    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="2.0"></div>
+      <div class="field"><label>Green level <span class="val" id="gGV">100</span>% (lower it if orange looks yellow)</label><input type="range" id="gG" min="30" max="100" value="100"></div>
+      <div class="field"><label>Blue level <span class="val" id="gBV">100</span>% (lower it if warm colors look pink)</label><input type="range" id="gB" min="30" max="100" value="100"></div>
+      <div class="field"><label>Color test: 9 bars, left to right: red, orange, yellow, green, cyan, blue, purple, pink, white</label><button id="colTest">Send color test</button></div>
     <div class="grid2">
       <div class="field"><label>Live update method (custom clocks, visualizer)</label><select id="liveMode"><option value="3">DIY (mode 03, recommended)</option><option value="2">Picture (mode 02, writes flash)</option></select></div>
       <div class="field"><label>DIY hold byte <span class="val" id="diyHoldV">0</span>. The app sends 0. Raise it if DIY images disappear too quickly.</label><input type="range" id="diyHold" min="0" max="40" value="0"></div>
@@ -483,7 +491,7 @@ function log(s){const L=$("log");L.textContent+=s+"\n";if(L.textContent.length>4
 const hexs=b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ============================================================ panel size + frames */
-const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma",1) };
+const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",2.0), gG:LS.get("gG",100), gB:LS.get("gB",100) };
 function W(){return +($("ovW").value)||S.w;} function H(){return +($("ovH").value)||S.h;}
 function newFrame(w=W(),h=H()){return {w,h,d:new Uint8ClampedArray(w*h*3)};}
 function cloneFrame(f){return {w:f.w,h:f.h,d:new Uint8ClampedArray(f.d)};}
@@ -511,8 +519,9 @@ const P = {
   grb(f,opt={}){
     const g=S.gamma, cut=opt.cut==null?0:opt.cut, lut=new Uint8Array(256);
     for(let i=0;i<256;i++) lut[i]=g===1?i:Math.round(255*Math.pow(i/255,g));
+    const kG=(S.gG||100)/100,kB=(S.gB||100)/100;
     const out=new Uint8Array(f.w*f.h*3); let k=0;
-    for(let x=f.w-1;x>=0;x--) for(let y=0;y<f.h;y++){ const i=(y*f.w+x)*3; let r=f.d[i],gg=f.d[i+1],b=f.d[i+2]; if(r+gg+b<cut){r=gg=b=0;} out[k++]=lut[gg];out[k++]=lut[r];out[k++]=lut[b]; }
+    for(let x=f.w-1;x>=0;x--) for(let y=0;y<f.h;y++){ const i=(y*f.w+x)*3; let r=f.d[i],gg=f.d[i+1],b=f.d[i+2]; if(r+gg+b<cut){r=gg=b=0;} out[k++]=Math.round(lut[gg]*kG);out[k++]=lut[r];out[k++]=Math.round(lut[b]*kB); }
     return out;
   }
 };
@@ -873,7 +882,7 @@ function genFx(type,n,col){const w=W(),h=H(),c=hex2rgb(col),out=[];let st={};
     case"warp":{if(!st.w)st.w=Array.from({length:60},()=>[Math.random()*2-1,Math.random()*2-1,Math.random()]);const add=(x,y,col)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&x<w&&y>=0&&y<h){const o=getPx(f,x,y);setPx(f,x,y,o.map((v,i)=>Math.min(255,v+col[i])));}};
       for(const s of st.w){const z=((s[2]-T*2)%1+1)%1+0.03,z2=z+0.035,x=w/2+s[0]*9/z,y=h/2+s[1]*3.5/z,x2=w/2+s[0]*9/z2,y2=h/2+s[1]*3.5/z2,b=Math.min(1,0.3+0.25/z),m=Math.max(1,Math.floor(Math.hypot(x-x2,y-y2)));for(let k=0;k<=m;k++){const a=k/m;add(x2+(x-x2)*a,y2+(y-y2)*a,c.map(v=>v*b*(0.35+0.65*a)));}}break;}
     case"kaleido":for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=Math.abs(x-(w-1)/2),dy=Math.abs(y-(h-1)/2),v=Math.sin(dx*.6+T*6.283)+Math.sin(dy*.9-T*12.566)+Math.sin((dx+dy)*.4+T*6.283);if(v>.6)setPx(f,x,y,hsv(v*.2+T,1,Math.min(1,v-.6)));}break;
-    case"lava":{const bl=[0,1,2,3].map(i=>[w/2+(w/2-4)*Math.sin(T*6.283+i*2),h/2+(h/2-2)*Math.sin(T*12.566+i*1.3),3+i%2]);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(const [bx,by,r] of bl)v+=r*r/((x-bx)**2*.5+(y-by)**2+.1);if(v>1.4){const k=Math.min(1,(v-1.4)/3);setPx(f,x,y,[255*.9+c[0]*.1,60+120*k,20]);}else setPx(f,x,y,[40*v,0,50*v]);}break;}
+    case"lava":{const bl=[0,1,2,3].map(i=>[w/2+(w/2-4)*Math.sin(T*6.283+i*2),h/2+(h/2-2)*Math.sin(T*12.566+i*1.3),3+i%2]);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(const [bx,by,r] of bl)v+=r*r/((x-bx)**2*.5+(y-by)**2+.1);if(v>1.4){const k=Math.min(1,(v-1.4)/3);setPx(f,x,y,[255,40+150*k,0]);}else setPx(f,x,y,[40*v,0,50*v]);}break;}
     case"tunnel":for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=(x-(w-1)/2)/2,dy=y-(h-1)/2,d=Math.hypot(dx,dy)+.01,ang=Math.atan2(dy,dx),v=((8/d+T*8)%2+2)%2;if(v<1&&(((ang/Math.PI*4+T*4)%2+2)%2)<1.3)setPx(f,x,y,hsv(.75+d/20,.9,Math.min(1,.3+d/8)));}break;
     case"eq":{if(!st.e)st.e=Array.from({length:9},()=>Math.random()*6);const bw=Math.floor(w/9);for(let i=0;i<9;i++){const lv=Math.round(2+(h-3)*Math.abs(Math.sin(T*6.283*3+st.e[i]+i*.7))*Math.abs(Math.sin(T*6.283+i)));for(let y=0;y<lv;y++)for(let x=i*bw;x<i*bw+bw-1;x++)setPx(f,x,h-1-y,hsv(.33-y/h*.33,1,1));}break;}
     case"aurora":for(let x=0;x<w;x++){const cc=h/2-1+3*Math.sin(x*.25+T*6.283)+1.5*Math.sin(x*.6-T*12.566);for(let y=0;y<h;y++){const k=Math.max(0,1-Math.abs(y-cc)/3.5);if(k>0)setPx(f,x,y,hsv(.38+.25*Math.sin(x*.1+T*6.283)+y*.015,.9,k));}}break;
@@ -903,6 +912,53 @@ function genRouteWarp(bar){const w=W(),h=H(),INTRO=666,PER=27,N=INTRO+PER*2,rr=M
   return out;}
 
 function genCountTest(n){const w=W(),h=H(),out=[];for(let t=0;t<n;t++){const f=newFrame(w,h),k=Math.min(w*h,Math.floor((t+1)/5));for(let i=0;i<k;i++)setPx(f,i%w,Math.floor(i/w),(i+1)%20===0?[255,0,0]:[255,255,255]);out.push(f);}return out;}
+/* ============================================================ desert night drive */
+function genDesertNight(){
+  const W0=W(),H0=H(),SS=4,HW=W0*SS,HH=H0*SS,YH=18,SPD=0.55,EASE=14;
+  const SEG=[[170,0],[60,0.8],[140,0],[70,-1.0],[180,0],[40,0.55]],D=SEG.reduce((a,s)=>a+s[0],0),N=Math.round(D/SPD);
+  const sst=(e0,e1,x)=>{const t=Math.min(1,Math.max(0,(x-e0)/(e1-e0)));return t*t*(3-2*t);};
+  const curv=s=>{s=((s%D)+D)%D;let o=0,a=0;for(const [l,c] of SEG){if(c)o+=c*sst(a,a+EASE,s)*(1-sst(a+l-EASE,a+l,s));a+=l;}return o;};
+  const NT=4000,pan=new Float32Array(NT);let acc=0;for(let i=0;i<NT;i++){acc+=curv(i*D/NT)*(D/NT)*1.4;pan[i]=acc;}const drift=acc;
+  const panAt=s=>{s=((s%D)+D)%D;const f=s/D*NT,i=Math.min(NT-1,Math.floor(f));return pan[i]-drift*(s/D);};
+  let seed=9;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  const OBJ=[];let a=0;for(const [l,c] of SEG){if(c)OBJ.push([a-28,c>0?1.55:-1.55,"warn"]);a+=l;}
+  OBJ.push([60,1.9,"guide"],[330,1.5,"speed"],[520,-1.6,"mile"]);
+  for(let i=0;i<34;i++)OBJ.push([rnd()*D,(rnd()<.5?-1:1)*(1.4+rnd()*1.8),"cactus"]);
+  for(let i=0;i<60;i++)OBJ.push([rnd()*D,(rnd()<.5?-1:1)*(1.25+rnd()*2.25),"bush"]);
+  const STARS=[];for(let i=0;i<110;i++)STARS.push([rnd()*HW*3,rnd()*(YH-3),0.3+rnd()*0.7]);
+  const mtn=x=>Math.min(7,Math.max(0.5,2+2*Math.sin(x*.045)+1.2*Math.sin(x*.11+2)+(Math.sin(x*.02+1)>.4?6:0)+(Math.sin(x*.013+4)>.7?4:0)));
+  const TOP=[2,3,14],BOT=[16,20,52],MCOL=[4,4,11],MOONL=[0.26,0.31,0.5],HEAD=[1,0.92,0.75];
+  const roadC=(dy,c,cf)=>HW/2+Math.max(-400,Math.min(400,(c*.5+cf*.5)*(700/dy-700/(HH-YH))))-c*16;
+  const head=(dy,x)=>{const z=60/dy,lat=(x-HW/2)/(1.8*dy);return 1.8*Math.max(0,Math.min(1,1.2-Math.abs(lat)/(0.6+0.04*z)))*Math.pow(Math.max(0,Math.min(1,1-(z-1.9)/18)),1.2);};
+  const img=new Float32Array(HW*HH*3),out=[];
+  const put=(x,y,r,g,b)=>{const i=(y*HW+x)*3;img[i]=r;img[i+1]=g;img[i+2]=b;};
+  for(let t=0;t<N;t++){const s=t*SPD,c=curv(s),pn=panAt(s);
+    for(let y=0;y<HH;y++){const k=(y+.5)/YH;for(let x=0;x<HW;x++)put(x,y,TOP[0]*(1-k)+BOT[0]*k,TOP[1]*(1-k)+BOT[1]*k,TOP[2]*(1-k)+BOT[2]*k);}
+    for(const [sx,sy,b] of STARS){const xx=Math.floor((((sx-pn*.1)%(HW*3))+HW*3)%(HW*3));if(xx<HW){const i=(Math.floor(sy)*HW+xx)*3,v=255*b*(0.65+0.35*Math.sin(t*.21+b*37));img[i]+=v;img[i+1]+=v;img[i+2]+=v;}}
+    const mx=HW*.24-pn*.15,my=6.5;
+    for(let y=0;y<YH;y++)for(let x=0;x<HW;x++){const dm=Math.hypot(x+.5-mx,y+.5-my),i=(y*HW+x)*3;if(dm<5.5){img[i]=235;img[i+1]=238;img[i+2]=255;}else{const g=Math.pow(Math.max(0,1-dm/15),2)*.55;img[i]+=120*g;img[i+1]+=130*g;img[i+2]+=190*g;}
+      if(y+.5>YH-mtn(x+.5-pn*.35)){img[i]=MCOL[0];img[i+1]=MCOL[1];img[i+2]=MCOL[2];}}
+    for(let y=Math.ceil(YH-.5);y<HH;y++){const dy=Math.max(y+.5-YH+.5,.5),z=60/dy,cf=curv(s+z*1.5),cen=roadC(dy,c,cf),hw=1.8*dy,zd=z+s;
+      for(let x=0;x<HW;x++){const X=x+.5,u=(X-cen)/hw,au=Math.abs(u),road=au<1,dash=au<.08&&((zd*.32)%1)<.5,edge=au>.86&&road;
+        let al;if(dash)al=[255,195,0];else if(edge)al=[210,210,210];else if(road)al=[60,62,80];else{const st=.85+.15*Math.sin(zd*2.1+X*.7);al=[200*st,120*st,50*st];}
+        const hl=head(dy,X)+((dash||edge)?Math.max(0,Math.min(1,1-(z-1.9)/40))*.6:0);
+        put(x,y,al[0]*(MOONL[0]+hl*HEAD[0]),al[1]*(MOONL[1]+hl*HEAD[1]),al[2]*(MOONL[2]+hl*HEAD[2]));}}
+    const vis=[];for(const o of OBJ){const dz=(((o[0]-s)%D)+D)%D;if(dz>2&&dz<40)vis.push([dz,o[1],o[2]]);}vis.sort((p,q)=>q[0]-p[0]);
+    for(const [dz,lat,kind] of vis){const ody=60/dz,oy=YH+ody-.5,ox=roadC(ody,c,curv(s+dz*1.5))+lat*1.8*ody,sc=1.8*ody,hlv=head(ody,ox);
+      const fill=(test,col,glow)=>{const L=[0,1,2].map(j=>MOONL[j]+(glow?hlv*3+.45:hlv)*HEAD[j]);const x0=Math.max(0,Math.floor(ox-1.2*sc)),x1=Math.min(HW,Math.ceil(ox+1.2*sc)),y0=Math.max(0,Math.floor(oy-1.8*sc)),y1=Math.min(HH,Math.ceil(oy+1));
+        for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(test(x+.5,y+.5))put(x,y,col[0]*L[0],col[1]*L[1],col[2]*L[2]);};
+      const R=(a0,a1,b0,b1)=>(X,Y)=>X>=ox+a0*sc&&X<ox+a1*sc&&Y>=oy-b1*sc&&Y<oy-b0*sc;
+      const any=(...fs)=>(X,Y)=>fs.some(f=>f(X,Y));
+      if(kind==="cactus")fill(any(R(-.14,.14,0,1.5),R(-.5,-.14,.55,.75),R(-.5,-.3,.55,1.1),R(.14,.45,.75,.92),R(.28,.45,.75,1.25)),[90,200,80],false);
+      else if(kind==="bush")fill((X,Y)=>((X-ox)/(.45*sc))**2+((Y-(oy-.22*sc))/(.24*sc))**2<1,[170,160,70],false);
+      else if(kind==="warn"){fill(R(-.04,.04,0,.8),[150,150,150],false);fill((X,Y)=>Math.abs(X-ox)+Math.abs(Y-(oy-sc))<.32*sc,[255,200,0],true);}
+      else if(kind==="guide"){fill(any(R(-.6,-.52,0,.9),R(.52,.6,0,.9)),[150,150,150],false);fill(R(-.8,.8,.8,1.55),[230,230,230],true);fill(R(-.72,.72,.86,1.49),[0,130,60],true);}
+      else if(kind==="speed"){fill(R(-.04,.04,0,.8),[150,150,150],false);fill(R(-.22,.22,.75,1.3),[240,240,240],true);fill(R(-.12,.12,.9,1),[30,30,30],true);}
+      else if(kind==="mile"){fill(R(-.06,.06,0,.75),[0,130,60],true);fill(R(-.06,.06,.6,.7),[230,230,230],true);}}
+    const f=newFrame(W0,H0);
+    for(let y=0;y<H0;y++)for(let x=0;x<W0;x++){let r=0,g=0,b=0;for(let yy=0;yy<SS;yy++)for(let xx=0;xx<SS;xx++){const i=((y*SS+yy)*HW+x*SS+xx)*3;r+=img[i];g+=img[i+1];b+=img[i+2];}const n=SS*SS;setPx(f,x,y,[r/n,g/n,b/n]);}
+    out.push(f);}
+  return out;}
 /* ============================================================ custom clocks */
 const CL={t:null,start:0,last:""};
 function renderClock(type){const now=new Date(),w=W(),h=H();const twelve=$("c12").checked;let hh=now.getHours();if(twelve){hh=hh%12||12;}const p2=n=>String(n).padStart(2,"0");
@@ -1118,6 +1174,9 @@ function init(){
   $("ssSave").onclick=()=>{const o=ssOpts();const name=prompt("Scene name",(ssLines(o)[0]||"Slideshow").slice(0,24)+" (loop)");if(name)LIB.add({name,kind:"textloop",opts:o});};
   $("tUnit").value=LS.get("tUnit",10);$("tUnit").addEventListener("change",()=>LS.set("tUnit",+$("tUnit").value));
   $("tTest").onclick=()=>timingTest().catch(err);
+  $("gam").value=S.gamma;$("gamV").textContent=(+S.gamma).toFixed(1);
+  for(const id of ["gG","gB"]){$(id).value=S[id];$(id+"V").textContent=S[id];$(id).oninput=()=>{S[id]=+$(id).value;LS.set(id,S[id]);$(id+"V").textContent=S[id];};}
+  $("colTest").onclick=()=>{const f=newFrame(),cols=[[255,0,0],[255,100,0],[255,210,0],[0,255,0],[0,255,255],[0,0,255],[140,0,255],[255,60,160],[255,255,255]];for(let x=0;x<W();x++)for(let y=0;y<H();y++)setPx(f,x,y,cols[Math.min(8,Math.floor(x/4))]);sendPicture(f,"color test").catch(err);};
   $("ctN").addEventListener("input",()=>$("ctNV").textContent=$("ctN").value);
   $("ctPrev").onclick=()=>showPreview(genCountTest(+$("ctN").value),50);
   $("ctSend").onclick=()=>{const n=+$("ctN").value;$("ctInfo").textContent=n+" frames, ~"+Math.round(n*(12+W()*H()*3)/1024)+" KB";sendAnimation(genCountTest(n),1,"frame-limit test").catch(err);};
@@ -1136,6 +1195,9 @@ function init(){
   $("fxPreview").onclick=()=>showPreview(fx(),10);["fxType","fxN","fxColor"].forEach(id=>$(id).addEventListener("input",()=>showPreview(fx(),10)));
   $("fxSend").onclick=()=>sendAnimation(fx()).catch(err);
   const rwDelay=()=>clamp(Math.round(70/(+$("tUnit").value||10)),1,255);
+  let DN=null;const dnFrames=()=>{if(!DN){$("dnInfo").textContent="building…";DN=genDesertNight();}$("dnInfo").textContent=DN.length+" frames · delay byte "+rwDelay();return DN;};
+  $("dnPreview").onclick=()=>setTimeout(()=>showPreview(dnFrames(),1000/70),20);
+  $("dnSend").onclick=()=>setTimeout(()=>sendAnimation(dnFrames(),rwDelay(),"desert night drive").catch(err),20);
   $("rwPreview").onclick=()=>{const fr=genRouteWarp($("rwBar").checked);$("rwInfo").textContent=fr.length+" frames · delay byte "+rwDelay();showPreview(fr,1000/70);};
   $("rwSend").onclick=()=>{const fr=genRouteWarp($("rwBar").checked);$("rwInfo").textContent=fr.length+" frames · delay byte "+rwDelay();sendAnimation(fr,rwDelay(),"Route 749 warp").catch(err);};$("fxToDraw").onclick=()=>loadFrames(fx());
   $("fxSave").onclick=()=>{const name=prompt("Scene name",$("fxType").selectedOptions[0].text);if(name)LIB.add({name,kind:"animation",frames:fx().map(enc),delay:+$("animDelay").value});};
@@ -1159,7 +1221,7 @@ function init(){
   $("br").onchange=()=>{S.bright=+$("br").value;LS.set("bright",S.bright);if(BLE.connected)sendSettings().catch(err);};
   $("rot").onchange=()=>{S.rot=+$("rot").value;LS.set("rot",S.rot);};
   $("applySet").onclick=()=>{S.bright=+$("br").value;S.rot=+$("rot").value;LS.set("bright",S.bright);LS.set("rot",S.rot);sendSettings().catch(err);};
-  $("gam").oninput=()=>{S.gamma=+$("gam").value;LS.set("gamma",S.gamma);};
+  $("gam").oninput=()=>{S.gamma=+$("gam").value;LS.set("gamma2",S.gamma);$("gamV").textContent=S.gamma.toFixed(1);};
   $("clearScr").onclick=()=>clearScreen().catch(err);
   $("erase").onclick=()=>{if(confirm("Erase ALL images stored in the panel's flash memory? This can't be undone."))eraseFlash().catch(err);};
   for(const id of ["liveMode","diyHold","picMode","chunk"]){const v=LS.get(id,null);if(v!=null)$(id).value=v;$(id).addEventListener("change",()=>LS.set(id,$(id).value));}
