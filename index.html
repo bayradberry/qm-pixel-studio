@@ -446,7 +446,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
       <div class="field"><label>Green level <span class="val" id="gGV">100</span>% (lower it if orange looks yellow)</label><input type="range" id="gG" min="30" max="100" value="100"></div>
       <div class="field"><label>Blue level <span class="val" id="gBV">100</span>% (lower it if warm colors look pink)</label><input type="range" id="gB" min="30" max="100" value="100"></div>
       <div class="field"><label>Hue cleanup <span class="val" id="hcV">0</span>% (turns off a color channel when it is this weak compared with the strongest one in that pixel; keeps orange from going pink at low brightness)</label><input type="range" id="hc" min="0" max="40" value="0"></div>
-      <div class="field"><label>Calibration chart: 6 color columns (orange, yellow, pink, purple, cyan, warm white), 4 strips top to bottom = correction 1.0 / 1.6 / 2.2 / 2.8. Sent without your current correction so you can compare.</label><button id="calChart">Send calibration chart</button> <button id="calChart2">Send purple test (set 2)</button></div>
+      <div class="field"><label>Calibration chart: 6 color columns (orange, yellow, pink, purple, cyan, warm white), 4 strips top to bottom = correction 1.0 / 1.6 / 2.2 / 2.8. Sent without your current correction so you can compare.</label><button id="calChart">Send calibration chart</button> <button id="calChart2">Send purple test (set 2)</button> <button id="calChart3">Send purple test (set 3)</button></div>
       <div class="field"><label>Color test: 9 bars, left to right: red, orange, yellow, green, cyan, blue, purple, pink, white</label><button id="colTest">Send color test</button></div>
     <div class="grid2">
       <div class="field"><label>Live update method (custom clocks, visualizer)</label><select id="liveMode"><option value="3">DIY (mode 03, recommended)</option><option value="2">Picture (mode 02, writes flash)</option></select></div>
@@ -1177,6 +1177,10 @@ function init(){
   $("tUnit").value=LS.get("tUnit",10);$("tUnit").addEventListener("change",()=>LS.set("tUnit",+$("tUnit").value));
   $("tTest").onclick=()=>timingTest().catch(err);
   $("gam").value=S.gamma;$("gamV").textContent=(+S.gamma).toFixed(1);
+  $("calChart3").onclick=()=>{const f=newFrame(),rs=[15,30,45,65,90],bs=[255,150,100,65];
+    for(let x=0;x<W();x++)for(let y=0;y<H();y++){const ci=Math.floor(x/6);let c;if(ci<5)c=[rs[ci],0,bs[Math.min(3,Math.floor(y/3))]];else c=x<32?[255,0,0]:x<34?[0,255,0]:[0,0,255];setPx(f,x,y,c);}
+    const keep={gamma:S.gamma,gG:S.gG,gB:S.gB,hc:S.hc};Object.assign(S,{gamma:1,gG:100,gB:100,hc:0});const bytes=P.grb(f);Object.assign(S,keep);
+    showPreview([f]);BLE.upload(+$("picMode").value,[bytes],{speed:10,tag:"purple test 3"}).catch(err);};
   $("calChart2").onclick=()=>{const f=newFrame(),cols=[[0,0,255],[60,0,255],[100,0,255],[140,0,255],[190,0,255],[255,0,255]],bl=[1,.8,.6,.45];
     for(let x=0;x<W();x++)for(let y=0;y<H();y++){const c=cols[Math.min(5,Math.floor(x/6))],k=bl[Math.min(3,Math.floor(y/3))];const g=c.map(v=>255*Math.pow(v/255,1.8));setPx(f,x,y,[Math.round(g[0]),0,Math.round(g[2]*k)]);}
     const keep={gamma:S.gamma,gG:S.gG,gB:S.gB,hc:S.hc};Object.assign(S,{gamma:1,gG:100,gB:100,hc:0});const bytes=P.grb(f);Object.assign(S,keep);
