@@ -320,6 +320,15 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
           <option value="scanner">Scanner bar</option>
           <option value="checker">Checker flash</option>
           <option value="snow">Snow</option>
+          <option value="warp">Warp starfield</option>
+          <option value="kaleido">Kaleidoscope</option>
+          <option value="lava">Lava lamp</option>
+          <option value="tunnel">Tunnel</option>
+          <option value="eq">Equalizer</option>
+          <option value="aurora">Aurora</option>
+          <option value="dna">DNA helix</option>
+          <option value="storm">Lightning storm</option>
+          <option value="spiral">Spiral</option>
         </select></div>
       <div class="field"><label>Frames <span class="val" id="fxNV">24</span></label><input type="range" id="fxN" min="4" max="60" value="24"></div>
       <div class="field"><label>Color</label><input type="color" id="fxColor" value="#ff7a1a"></div>
@@ -847,6 +856,17 @@ function genFx(type,n,col){const w=W(),h=H(),c=hex2rgb(col),out=[];let st={};
     case"scanner":{const pos=(Math.sin(T*6.283)*.5+.5)*(w-1);for(let x=0;x<w;x++){const a=Math.max(0,1-Math.abs(x-pos)/4);for(let y=0;y<h;y++)setPx(f,x,y,c.map(v=>v*a));}break;}
     case"checker":for(let y=0;y<h;y++)for(let x=0;x<w;x++)if((((x>>2)+(y>>2)+t)&1))setPx(f,x,y,c);break;
     case"snow":{if(!st.s)st.s=Array.from({length:22},()=>({x:Math.random()*w,y:Math.random()*h,v:.3+Math.random()*.5}));for(const s of st.s){s.y+=s.v;s.x+=Math.sin(s.y)*.2;if(s.y>=h){s.y=0;s.x=Math.random()*w;}setPx(f,Math.floor(s.x)%w,Math.floor(s.y),[230,240,255]);}break;}
+    case"warp":{if(!st.w)st.w=Array.from({length:60},()=>[Math.random()*2-1,Math.random()*2-1,Math.random()]);const add=(x,y,col)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&x<w&&y>=0&&y<h){const o=getPx(f,x,y);setPx(f,x,y,o.map((v,i)=>Math.min(255,v+col[i])));}};
+      for(const s of st.w){const z=((s[2]-T*2)%1+1)%1+0.03,z2=z+0.035,x=w/2+s[0]*9/z,y=h/2+s[1]*3.5/z,x2=w/2+s[0]*9/z2,y2=h/2+s[1]*3.5/z2,b=Math.min(1,0.3+0.25/z),m=Math.max(1,Math.floor(Math.hypot(x-x2,y-y2)));for(let k=0;k<=m;k++){const a=k/m;add(x2+(x-x2)*a,y2+(y-y2)*a,c.map(v=>v*b*(0.35+0.65*a)));}}break;}
+    case"kaleido":for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=Math.abs(x-(w-1)/2),dy=Math.abs(y-(h-1)/2),v=Math.sin(dx*.6+T*6.283)+Math.sin(dy*.9-T*12.566)+Math.sin((dx+dy)*.4+T*6.283);if(v>.6)setPx(f,x,y,hsv(v*.2+T,1,Math.min(1,v-.6)));}break;
+    case"lava":{const bl=[0,1,2,3].map(i=>[w/2+(w/2-4)*Math.sin(T*6.283+i*2),h/2+(h/2-2)*Math.sin(T*12.566+i*1.3),3+i%2]);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(const [bx,by,r] of bl)v+=r*r/((x-bx)**2*.5+(y-by)**2+.1);if(v>1.4){const k=Math.min(1,(v-1.4)/3);setPx(f,x,y,[255*.9+c[0]*.1,60+120*k,20]);}else setPx(f,x,y,[40*v,0,50*v]);}break;}
+    case"tunnel":for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=(x-(w-1)/2)/2,dy=y-(h-1)/2,d=Math.hypot(dx,dy)+.01,ang=Math.atan2(dy,dx),v=((8/d+T*8)%2+2)%2;if(v<1&&(((ang/Math.PI*4+T*4)%2+2)%2)<1.3)setPx(f,x,y,hsv(.75+d/20,.9,Math.min(1,.3+d/8)));}break;
+    case"eq":{if(!st.e)st.e=Array.from({length:9},()=>Math.random()*6);const bw=Math.floor(w/9);for(let i=0;i<9;i++){const lv=Math.round(2+(h-3)*Math.abs(Math.sin(T*6.283*3+st.e[i]+i*.7))*Math.abs(Math.sin(T*6.283+i)));for(let y=0;y<lv;y++)for(let x=i*bw;x<i*bw+bw-1;x++)setPx(f,x,h-1-y,hsv(.33-y/h*.33,1,1));}break;}
+    case"aurora":for(let x=0;x<w;x++){const cc=h/2-1+3*Math.sin(x*.25+T*6.283)+1.5*Math.sin(x*.6-T*12.566);for(let y=0;y<h;y++){const k=Math.max(0,1-Math.abs(y-cc)/3.5);if(k>0)setPx(f,x,y,hsv(.38+.25*Math.sin(x*.1+T*6.283)+y*.015,.9,k));}}break;
+    case"dna":for(let x=0;x<w;x++){const a=x*.45+T*12.566,y1=(h-1)/2+(h/2-1.5)*Math.sin(a),y2=(h-1)/2-(h/2-1.5)*Math.sin(a),fr=Math.cos(a)>0;if(x%3===0)for(let y=Math.floor(Math.min(y1,y2))+1;y<Math.max(y1,y2);y++)setPx(f,x,y,[60,60,90]);const p=(y,col)=>{y=Math.round(y);if(y>=0&&y<h)setPx(f,x,y,col);};p(y1,fr?[255,60,140]:[120,30,70]);p(y2,fr?[30,90,130]:[60,180,255]);}break;
+    case"storm":{const m=t%24,flash=[3,4,6,15].includes(m);if(flash){for(let y=0;y<h;y++)for(let x=0;x<w;x++)setPx(f,x,y,[25,25,45]);let s=(Math.floor(t/3)*9301+49297)%233280,rr=()=>(s=(s*9301+49297)%233280)/233280;let x=6+rr()*(w-12);for(let y=0;y<h;y++){x+=Math.floor(rr()*3)-1;const xi=Math.round(x);if(xi>=0&&xi<w)setPx(f,xi,y,[220,220,255]);if(xi+1>=0&&xi+1<w)setPx(f,xi+1,y,[80,80,140]);}}
+      for(let i=0;i<25;i++){const rx=Math.floor((i*7.3)%w),ry=Math.floor(((i*3.1+t*.8)%h));if(getPx(f,rx,ry).every(v=>v<60))setPx(f,rx,ry,[40,60,110]);}break;}
+    case"spiral":for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dx=(x-(w-1)/2)/1.6,dy=y-(h-1)/2,d=Math.hypot(dx,dy),ang=Math.atan2(dy,dx),v=Math.sin(ang*2+d*.9-T*12.566);if(v>.3)setPx(f,x,y,hsv(d/12-T,1,v));}break;
     }
     out.push(f);}
   return out;}
