@@ -443,6 +443,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
       <div class="field"><label>DIY hold byte <span class="val" id="diyHoldV">0</span>. The app sends 0. Raise it if DIY images disappear too quickly.</label><input type="range" id="diyHold" min="0" max="40" value="0"></div>
       <div class="field"><label>Picture target</label><select id="picMode"><option value="2">Picture (mode 02)</option><option value="7">Picture slot B (mode 07)</option><option value="8">Remote images (mode 08)</option></select></div>
       <div class="field"><label>Panel animation time unit: <span class="val" id="tUnitV">10</span> ms per delay step (used to convert seconds into panel timing)</label><input type="range" id="tUnit" min="1" max="100" value="10"><button id="tTest" style="margin-top:6px">Test timing (should blink once per second)</button></div>
+      <div class="field"><label>Frame-limit test: lights one pixel every 5 frames, left to right, row by row (every 20th pixel red = 100 frames). Frames <span class="val" id="ctNV">2160</span></label><input type="range" id="ctN" min="100" max="2160" step="20" value="2160"><div class="row" style="margin-top:6px"><button id="ctPrev">Preview</button><button id="ctSend">Send test</button><span class="small" id="ctInfo"></span></div></div>
       <div class="field"><label>Bluetooth write chunk size</label><select id="chunk"><option>240</option><option>180</option><option>120</option><option>60</option><option>20</option></select><button id="resetW" style="margin-top:6px">Re-detect write mode</button></div>
     </div>
   </div>
@@ -900,6 +901,8 @@ function genRouteWarp(bar){const w=W(),h=H(),INTRO=666,PER=27,N=INTRO+PER*2,rr=M
     if(bar)for(let x=0;x<Math.min(w,Math.floor((t+1)/20));x++)for(let y=h-2;y<h;y++)setPx(f,x,y,[255,255,255]);
     out.push(f);}
   return out;}
+
+function genCountTest(n){const w=W(),h=H(),out=[];for(let t=0;t<n;t++){const f=newFrame(w,h),k=Math.min(w*h,Math.floor((t+1)/5));for(let i=0;i<k;i++)setPx(f,i%w,Math.floor(i/w),(i+1)%20===0?[255,0,0]:[255,255,255]);out.push(f);}return out;}
 /* ============================================================ custom clocks */
 const CL={t:null,start:0,last:""};
 function renderClock(type){const now=new Date(),w=W(),h=H();const twelve=$("c12").checked;let hh=now.getHours();if(twelve){hh=hh%12||12;}const p2=n=>String(n).padStart(2,"0");
@@ -1115,6 +1118,9 @@ function init(){
   $("ssSave").onclick=()=>{const o=ssOpts();const name=prompt("Scene name",(ssLines(o)[0]||"Slideshow").slice(0,24)+" (loop)");if(name)LIB.add({name,kind:"textloop",opts:o});};
   $("tUnit").value=LS.get("tUnit",10);$("tUnit").addEventListener("change",()=>LS.set("tUnit",+$("tUnit").value));
   $("tTest").onclick=()=>timingTest().catch(err);
+  $("ctN").addEventListener("input",()=>$("ctNV").textContent=$("ctN").value);
+  $("ctPrev").onclick=()=>showPreview(genCountTest(+$("ctN").value),50);
+  $("ctSend").onclick=()=>{const n=+$("ctN").value;$("ctInfo").textContent=n+" frames, ~"+Math.round(n*(12+W()*H()*3)/1024)+" KB";sendAnimation(genCountTest(n),1,"frame-limit test").catch(err);};
   $("textToFrames").onclick=()=>{const fr=textScrollFrames(textOpts());if(fr.length>120){toast("Long text: using the first 120 frames");}loadFrames(fr.slice(0,120));};
   $("saveText").onclick=()=>{const o=textOpts();const name=prompt("Scene name",o.text.slice(0,24));if(name)LIB.add({name,kind:"text",opts:o});};
   // image
