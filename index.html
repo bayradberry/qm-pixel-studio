@@ -330,7 +330,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
           <option value="storm">Lightning storm</option>
           <option value="spiral">Spiral</option>
         </select></div>
-      <div class="field"><label>Frames <span class="val" id="fxNV">24</span></label><input type="range" id="fxN" min="4" max="60" value="24"></div>
+      <div class="field"><label>Frames <span class="val" id="fxNV">24</span></label><input type="range" id="fxN" min="4" max="240" value="24"></div>
       <div class="field"><label>Color</label><input type="color" id="fxColor" value="#ff7a1a"></div>
     </div>
     <div class="row">
@@ -808,7 +808,7 @@ function ssInfo(){const o=ssOpts();if($("ssOn").value!=="1"){$("ssInfo").textCon
   const kb=Math.round(b.frames.length*(12+W()*H()*3)/1024);$("ssInfo").textContent=b.screens+" screens · "+b.frames.length+" frames (~"+kb+" KB) · "+(b.realFrame/1000).toFixed(2)+" s per frame";return b;}
 function ssPreview(){const b=ssInfo();if(!b)return;showPreview(b.frames,1000/b.realFrame);}
 async function ssSendPanel(o=ssOpts()){const b=ssBuild(o);if(!b)return toast("Type at least one line");
-  if(b.frames.length>150&&!confirm(b.frames.length+" frames is a big upload and the panel may not hold that many. Lower the seconds per screen, raise the scroll speed, or set long lines to clip. Send anyway?"))return;
+  if(b.frames.length>2160&&!confirm(b.frames.length+" frames is more than the 2160 tested on this panel. Lower the seconds per screen, raise the scroll speed, or set long lines to clip. Send anyway?"))return;
   showPreview(b.frames,1000/b.realFrame);return BLE.upload(4,b.frames.map(f=>P.grb(f)),{speed:b.d,tag:"slideshow"});}
 async function ssPlay(){ssStop();const o=ssOpts();const scr=ssScreens(o);if(!scr.length)return toast("Type at least one line");if(!BLE.connected)return toast("Connect first");
   SS.on=true;let i=0;$("ssInfo").textContent="playing…";
