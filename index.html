@@ -445,6 +445,8 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
     <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="1"></div>
       <div class="field"><label>Green level <span class="val" id="gGV">100</span>% (lower it if orange looks yellow)</label><input type="range" id="gG" min="30" max="100" value="100"></div>
       <div class="field"><label>Blue level <span class="val" id="gBV">100</span>% (lower it if warm colors look pink)</label><input type="range" id="gB" min="30" max="100" value="100"></div>
+      <div class="field"><label>Hue cleanup <span class="val" id="hcV">0</span>% (turns off a color channel when it is this weak compared with the strongest one in that pixel; keeps orange from going pink at low brightness)</label><input type="range" id="hc" min="0" max="40" value="0"></div>
+      <div class="field"><label>Calibration chart: 6 color columns (orange, yellow, pink, purple, cyan, warm white), 4 strips top to bottom = correction 1.0 / 1.6 / 2.2 / 2.8. Sent without your current correction so you can compare.</label><button id="calChart">Send calibration chart</button></div>
       <div class="field"><label>Color test: 9 bars, left to right: red, orange, yellow, green, cyan, blue, purple, pink, white</label><button id="colTest">Send color test</button></div>
     <div class="grid2">
       <div class="field"><label>Live update method (custom clocks, visualizer)</label><select id="liveMode"><option value="3">DIY (mode 03, recommended)</option><option value="2">Picture (mode 02, writes flash)</option></select></div>
@@ -491,7 +493,7 @@ function log(s){const L=$("log");L.textContent+=s+"\n";if(L.textContent.length>4
 const hexs=b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ============================================================ panel size + frames */
-const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",1), gG:LS.get("gG",100), gB:LS.get("gB",100) };
+const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",1), gG:LS.get("gG",100), gB:LS.get("gB",100), hc:LS.get("hc",0) };
 function W(){return +($("ovW").value)||S.w;} function H(){return +($("ovH").value)||S.h;}
 function newFrame(w=W(),h=H()){return {w,h,d:new Uint8ClampedArray(w*h*3)};}
 function cloneFrame(f){return {w:f.w,h:f.h,d:new Uint8ClampedArray(f.d)};}
@@ -519,9 +521,9 @@ const P = {
   grb(f,opt={}){
     const g=S.gamma, cut=opt.cut==null?0:opt.cut, lut=new Uint8Array(256);
     for(let i=0;i<256;i++) lut[i]=g===1?i:Math.round(255*Math.pow(i/255,g));
-    const kG=(S.gG||100)/100,kB=(S.gB||100)/100;
+    const kG=(S.gG||100)/100,kB=(S.gB||100)/100,hc=(S.hc||0)/100;
     const out=new Uint8Array(f.w*f.h*3); let k=0;
-    for(let x=f.w-1;x>=0;x--) for(let y=0;y<f.h;y++){ const i=(y*f.w+x)*3; let r=f.d[i],gg=f.d[i+1],b=f.d[i+2]; if(r+gg+b<cut){r=gg=b=0;} out[k++]=Math.round(lut[gg]*kG);out[k++]=lut[r];out[k++]=Math.round(lut[b]*kB); }
+    for(let x=f.w-1;x>=0;x--) for(let y=0;y<f.h;y++){ const i=(y*f.w+x)*3; let r=f.d[i],gg=f.d[i+1],b=f.d[i+2]; if(r+gg+b<cut){r=gg=b=0;} let R=lut[r],G=Math.round(lut[gg]*kG),B=Math.round(lut[b]*kB);if(hc){const m=Math.max(R,G,B)*hc;if(R<m)R=0;if(G<m)G=0;if(B<m)B=0;}out[k++]=G;out[k++]=R;out[k++]=B; }
     return out;
   }
 };
@@ -1175,7 +1177,11 @@ function init(){
   $("tUnit").value=LS.get("tUnit",10);$("tUnit").addEventListener("change",()=>LS.set("tUnit",+$("tUnit").value));
   $("tTest").onclick=()=>timingTest().catch(err);
   $("gam").value=S.gamma;$("gamV").textContent=(+S.gamma).toFixed(1);
-  for(const id of ["gG","gB"]){$(id).value=S[id];$(id+"V").textContent=S[id];$(id).oninput=()=>{S[id]=+$(id).value;LS.set(id,S[id]);$(id+"V").textContent=S[id];};}
+  $("calChart").onclick=()=>{const f=newFrame(),cols=[[255,100,0],[255,200,0],[255,70,150],[140,0,255],[0,220,255],[255,170,100]],gs=[1,1.6,2.2,2.8];
+    for(let x=0;x<W();x++)for(let y=0;y<H();y++){const c=cols[Math.min(5,Math.floor(x/6))],g=gs[Math.min(3,Math.floor(y/3))];setPx(f,x,y,c.map(v=>Math.round(255*Math.pow(v/255,g))));}
+    const keep={gamma:S.gamma,gG:S.gG,gB:S.gB,hc:S.hc};Object.assign(S,{gamma:1,gG:100,gB:100,hc:0});const bytes=P.grb(f);Object.assign(S,keep);
+    showPreview([f]);BLE.upload(+$("picMode").value,[bytes],{speed:10,tag:"calibration chart"}).catch(err);};
+  for(const id of ["gG","gB","hc"]){$(id).value=S[id];$(id+"V").textContent=S[id];$(id).oninput=()=>{S[id]=+$(id).value;LS.set(id,S[id]);$(id+"V").textContent=S[id];};}
   $("colTest").onclick=()=>{const f=newFrame(),cols=[[255,0,0],[255,100,0],[255,210,0],[0,255,0],[0,255,255],[0,0,255],[140,0,255],[255,60,160],[255,255,255]];for(let x=0;x<W();x++)for(let y=0;y<H();y++)setPx(f,x,y,cols[Math.min(8,Math.floor(x/4))]);sendPicture(f,"color test").catch(err);};
   $("ctN").addEventListener("input",()=>$("ctNV").textContent=$("ctN").value);
   $("ctPrev").onclick=()=>showPreview(genCountTest(+$("ctN").value),50);
