@@ -442,11 +442,11 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
   </div>
   <div class="card">
     <h2>Color &amp; output</h2>
-    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="1"></div>
+    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="1.8"></div>
       <div class="field"><label>Green level <span class="val" id="gGV">100</span>% (lower it if orange looks yellow)</label><input type="range" id="gG" min="30" max="100" value="100"></div>
       <div class="field"><label>Blue level <span class="val" id="gBV">100</span>% (lower it if warm colors look pink)</label><input type="range" id="gB" min="30" max="100" value="100"></div>
       <div class="field"><label>Hue cleanup <span class="val" id="hcV">0</span>% (turns off a color channel when it is this weak compared with the strongest one in that pixel; keeps orange from going pink at low brightness)</label><input type="range" id="hc" min="0" max="40" value="0"></div>
-      <div class="field"><label>Calibration chart: 6 color columns (orange, yellow, pink, purple, cyan, warm white), 4 strips top to bottom = correction 1.0 / 1.6 / 2.2 / 2.8. Sent without your current correction so you can compare.</label><button id="calChart">Send calibration chart</button></div>
+      <div class="field"><label>Calibration chart: 6 color columns (orange, yellow, pink, purple, cyan, warm white), 4 strips top to bottom = correction 1.0 / 1.6 / 2.2 / 2.8. Sent without your current correction so you can compare.</label><button id="calChart">Send calibration chart</button> <button id="calChart2">Send purple test (set 2)</button></div>
       <div class="field"><label>Color test: 9 bars, left to right: red, orange, yellow, green, cyan, blue, purple, pink, white</label><button id="colTest">Send color test</button></div>
     <div class="grid2">
       <div class="field"><label>Live update method (custom clocks, visualizer)</label><select id="liveMode"><option value="3">DIY (mode 03, recommended)</option><option value="2">Picture (mode 02, writes flash)</option></select></div>
@@ -493,7 +493,7 @@ function log(s){const L=$("log");L.textContent+=s+"\n";if(L.textContent.length>4
 const hexs=b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ============================================================ panel size + frames */
-const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",1), gG:LS.get("gG",100), gB:LS.get("gB",100), hc:LS.get("hc",0) };
+const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma3",1.8), gG:LS.get("gG",100), gB:LS.get("gB",100), hc:LS.get("hc",0) };
 function W(){return +($("ovW").value)||S.w;} function H(){return +($("ovH").value)||S.h;}
 function newFrame(w=W(),h=H()){return {w,h,d:new Uint8ClampedArray(w*h*3)};}
 function cloneFrame(f){return {w:f.w,h:f.h,d:new Uint8ClampedArray(f.d)};}
@@ -1177,6 +1177,10 @@ function init(){
   $("tUnit").value=LS.get("tUnit",10);$("tUnit").addEventListener("change",()=>LS.set("tUnit",+$("tUnit").value));
   $("tTest").onclick=()=>timingTest().catch(err);
   $("gam").value=S.gamma;$("gamV").textContent=(+S.gamma).toFixed(1);
+  $("calChart2").onclick=()=>{const f=newFrame(),cols=[[0,0,255],[60,0,255],[100,0,255],[140,0,255],[190,0,255],[255,0,255]],bl=[1,.8,.6,.45];
+    for(let x=0;x<W();x++)for(let y=0;y<H();y++){const c=cols[Math.min(5,Math.floor(x/6))],k=bl[Math.min(3,Math.floor(y/3))];const g=c.map(v=>255*Math.pow(v/255,1.8));setPx(f,x,y,[Math.round(g[0]),0,Math.round(g[2]*k)]);}
+    const keep={gamma:S.gamma,gG:S.gG,gB:S.gB,hc:S.hc};Object.assign(S,{gamma:1,gG:100,gB:100,hc:0});const bytes=P.grb(f);Object.assign(S,keep);
+    showPreview([f]);BLE.upload(+$("picMode").value,[bytes],{speed:10,tag:"purple test"}).catch(err);};
   $("calChart").onclick=()=>{const f=newFrame(),cols=[[255,100,0],[255,200,0],[255,70,150],[140,0,255],[0,220,255],[255,170,100]],gs=[1,1.6,2.2,2.8];
     for(let x=0;x<W();x++)for(let y=0;y<H();y++){const c=cols[Math.min(5,Math.floor(x/6))],g=gs[Math.min(3,Math.floor(y/3))];setPx(f,x,y,c.map(v=>Math.round(255*Math.pow(v/255,g))));}
     const keep={gamma:S.gamma,gG:S.gG,gB:S.gB,hc:S.hc};Object.assign(S,{gamma:1,gG:100,gB:100,hc:0});const bytes=P.grb(f);Object.assign(S,keep);
@@ -1227,7 +1231,7 @@ function init(){
   $("br").onchange=()=>{S.bright=+$("br").value;LS.set("bright",S.bright);if(BLE.connected)sendSettings().catch(err);};
   $("rot").onchange=()=>{S.rot=+$("rot").value;LS.set("rot",S.rot);};
   $("applySet").onclick=()=>{S.bright=+$("br").value;S.rot=+$("rot").value;LS.set("bright",S.bright);LS.set("rot",S.rot);sendSettings().catch(err);};
-  $("gam").oninput=()=>{S.gamma=+$("gam").value;LS.set("gamma2",S.gamma);$("gamV").textContent=S.gamma.toFixed(1);};
+  $("gam").oninput=()=>{S.gamma=+$("gam").value;LS.set("gamma3",S.gamma);$("gamV").textContent=S.gamma.toFixed(1);};
   $("clearScr").onclick=()=>clearScreen().catch(err);
   $("erase").onclick=()=>{if(confirm("Erase ALL images stored in the panel's flash memory? This can't be undone."))eraseFlash().catch(err);};
   for(const id of ["liveMode","diyHold","picMode","chunk"]){const v=LS.get(id,null);if(v!=null)$(id).value=v;$(id).addEventListener("change",()=>LS.set(id,$(id).value));}
