@@ -442,7 +442,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
   </div>
   <div class="card">
     <h2>Color &amp; output</h2>
-    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="2.0"></div>
+    <div class="field"><label>Color correction (gamma) <span class="val" id="gamV">1.0</span>. 1.0 = off. Try 2.0–2.4 to make LED colors match the screen (orange stays orange).</label><input type="range" id="gam" min="1" max="2.8" step="0.1" value="1"></div>
       <div class="field"><label>Green level <span class="val" id="gGV">100</span>% (lower it if orange looks yellow)</label><input type="range" id="gG" min="30" max="100" value="100"></div>
       <div class="field"><label>Blue level <span class="val" id="gBV">100</span>% (lower it if warm colors look pink)</label><input type="range" id="gB" min="30" max="100" value="100"></div>
       <div class="field"><label>Color test: 9 bars, left to right: red, orange, yellow, green, cyan, blue, purple, pink, white</label><button id="colTest">Send color test</button></div>
@@ -491,7 +491,7 @@ function log(s){const L=$("log");L.textContent+=s+"\n";if(L.textContent.length>4
 const hexs=b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
 
 /* ============================================================ panel size + frames */
-const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",2.0), gG:LS.get("gG",100), gB:LS.get("gB",100) };
+const S={ w:36, h:12, bright:LS.get("bright",100), rot:LS.get("rot",0), gamma:LS.get("gamma2",1), gG:LS.get("gG",100), gB:LS.get("gB",100) };
 function W(){return +($("ovW").value)||S.w;} function H(){return +($("ovH").value)||S.h;}
 function newFrame(w=W(),h=H()){return {w,h,d:new Uint8ClampedArray(w*h*3)};}
 function cloneFrame(f){return {w:f.w,h:f.h,d:new Uint8ClampedArray(f.d)};}
