@@ -1007,6 +1007,20 @@ function genLongFx(type,n){
   // cross-fade the end into the start so the loop has no hard jump
   const K=Math.min(40,Math.floor(n/4));for(let i=0;i<K;i++){const a=(i+1)/(K+1),A=out[n-K+i],B=out[i];for(let j=0;j<A.d.length;j++)A.d[j]=A.d[j]*(1-a)+B.d[j]*a;}
   return out;}
+
+/* ============================================================ built-in remote presets */
+const R749_TXT=["....................................", "....................................", "..............#...###.###.#.#.###...", "..............#...#.....#.#.#.#.#...", "...##.###.#.#.###.###...#.###.###...", "...#..#.#.#.#.#...#.....#...#...#...", "...#..###.###.###.###...#...#...#...", "...................................."];
+function genR749Warp(){const w=W(),h=H(),N=120,TEAL=[0,255,208],LC=[[255,212,0],[125,255,0],[0,255,208]],PAL=[...LC,[255,255,255]],out=[];
+  let seed=3;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  const ST=Array.from({length:46},(_,i)=>[rnd()*2-1,rnd()*2-1,rnd(),PAL[i%4]]);const ox=Math.floor((w-36)/2);
+  for(let t=0;t<N;t++){const u=t/N,f=newFrame(w,h);
+    const add=(x,y,c,k)=>{x=Math.round(x);y=Math.round(y);if(x>=0&&x<w&&y>=0&&y<=8){const o=getPx(f,x,y);setPx(f,x,y,o.map((v,j)=>Math.min(255,v+c[j]*k)));}};
+    for(const [sx,sy,sz,c] of ST){const z=((sz-u*2)%1+1)%1+.04,z2=z+.045,x=w/2+sx*9/z,y=4.25+sy*2.6/z,x2=w/2+sx*9/z2,y2=4.25+sy*2.6/z2,b=Math.min(1,.25+.12/z),n=Math.max(1,Math.floor(Math.hypot(x-x2,y-y2)));for(let k=0;k<=n;k++){const a=k/n;add(x2+(x-x2)*a,y2+(y-y2)*a,c,b*(.3+.7*a));}}
+    for(let y=0;y<8;y++)for(let x=0;x<36;x++)if(R749_TXT[y][x]==="#"&&x+ox>=0&&x+ox<w)setPx(f,x+ox,y,TEAL);
+    for(let i=0;i<3;i++)for(let x=0;x<w;x++){const p=(((x/w-u*2)*3+i)%3+3)%3,a=Math.floor(p);let fr=p-a;fr=fr*fr*(3-2*fr);setPx(f,x,h-3+i,LC[a].map((v,j)=>v*(1-fr)+LC[(a+1)%3][j]*fr));}
+    out.push(f);}
+  return out;}
+const PRESETS={r749warp:{name:"route749 warp",gen:genR749Warp,delay:()=>clamp(Math.round(70/(+$("tUnit").value||10)),1,255)}};
 /* ============================================================ custom clocks */
 const CL={t:null,start:0,last:""};
 function renderClock(type){const now=new Date(),w=W(),h=H();const twelve=$("c12").checked;let hh=now.getHours();if(twelve){hh=hh%12||12;}const p2=n=>String(n).padStart(2,"0");
@@ -1050,13 +1064,14 @@ function specStop(){clearInterval(AU.vT);AU.vT=null;$("sState").textContent="sto
 function enc(f){return {w:f.w,h:f.h,b:btoa(String.fromCharCode(...f.d))};}
 function dec(o){const s=atob(o.b),d=new Uint8ClampedArray(s.length);for(let i=0;i<s.length;i++)d[i]=s.charCodeAt(i);return {w:o.w,h:o.h,d};}
 const LIB={items:LS.get("lib",[]),save(){LS.set("lib",this.items);renderRemote();},add(it){it.id=Date.now()+Math.random();this.items.push(it);this.save();toast("Saved to Remote: "+it.name);}};
-function thumbFor(it){if(it.kind==="textloop"){const s=ssScreens(it.opts);return s.length?cropAt(s[0].f,0):newFrame();}if(it.kind==="text"){const {pages}=buildTextPages(it.opts);return pages[it.opts.fx===2?pages.length-1:0];}if(it.kind==="clock"){const f=newFrame();return colorize(textMaskC("12:00","spleen6x12"),{mode:"solid",c1:"#ff7a1a",bg:"#000000"},W());}return dec(it.frames[0]);}
+function thumbFor(it){if(it.kind==="preset"){const P0=PRESETS[it.gen];return P0?(P0._f||(P0._f=P0.gen()))[30]:newFrame();}if(it.kind==="textloop"){const s=ssScreens(it.opts);return s.length?cropAt(s[0].f,0):newFrame();}if(it.kind==="text"){const {pages}=buildTextPages(it.opts);return pages[it.opts.fx===2?pages.length-1:0];}if(it.kind==="clock"){const f=newFrame();return colorize(textMaskC("12:00","spleen6x12"),{mode:"solid",c1:"#ff7a1a",bg:"#000000"},W());}return dec(it.frames[0]);}
 async function playItem(it){try{
   if(it.kind==="picture")await sendPicture(dec(it.frames[0]),it.name);
   else if(it.kind==="animation")await sendAnimation(it.frames.map(dec),it.delay||10,it.name);
   else if(it.kind==="text"){previewTextObj(it.opts);await sendTextObj(it.opts);}
   else if(it.kind==="clock")await sendClock(it.fmt||"24");
   else if(it.kind==="textloop")await ssSendPanel(it.opts);
+  else if(it.kind==="preset"){const P0=PRESETS[it.gen];const fr=P0._f||(P0._f=P0.gen());await sendAnimation(fr,P0.delay(),it.name);}
 }catch(e){err(e);}}
 function previewTextObj(o){const {pages}=buildTextPages(o);showPreview(pages,2);}
 function renderRemote(){const g=$("remoteGrid");g.innerHTML="";if(!LIB.items.length){g.innerHTML='<p class="small">Nothing saved yet. Use "☆ Save to Remote" on any tab.</p>';return;}
@@ -1292,6 +1307,7 @@ function init(){
   $("resetW").onclick=()=>{LS.set("wstrat",null);toast("Write mode will be re-detected on the next send");};
   $("chunk").addEventListener("change",()=>LS.set("wstrat",null));
   $("clrLog").onclick=()=>$("log").textContent="";
+  {const had=LS.get("presetsAdded",[]);for(const k of Object.keys(PRESETS))if(!had.includes(k)){LIB.items.unshift({id:Date.now()+Math.random(),name:PRESETS[k].name,kind:"preset",gen:k});had.push(k);}LS.set("presetsAdded",had);LS.set("lib",LIB.items);}
   syncVals(); renderEditor(); renderRemote(); setColor("#ff7a1a");
   window.addEventListener("resize",()=>{if($("tab-draw").classList.contains("active"))renderEditor();});
   // starter scene
