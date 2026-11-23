@@ -1020,7 +1020,21 @@ function genR749Warp(){const w=W(),h=H(),N=120,TEAL=[0,255,208],LC=[[255,212,0],
     for(let i=0;i<3;i++)for(let x=0;x<w;x++){const p=(((x/w-u*2)*3+i)%3+3)%3,a=Math.floor(p);let fr=p-a;fr=fr*fr*(3-2*fr);setPx(f,x,h-3+i,LC[a].map((v,j)=>v*(1-fr)+LC[(a+1)%3][j]*fr));}
     out.push(f);}
   return out;}
-const PRESETS={r749warp:{name:"route749 warp",gen:genR749Warp,delay:()=>clamp(Math.round(70/(+$("tUnit").value||10)),1,255)}};
+const R819_TXT=["....................................", ".............#...###.###.#.###.###..", ".............#...#...#.#.#.#.#...#..", ".###.###.#.#.###.###.###.#.###.###..", ".#...#.#.#.#.#...#...#.#.#...#.#....", ".#...###.###.###.###.###.#...#.###.."];
+function genR819Eq(){const w=W(),h=H(),N=128,NB=12,TP=2*Math.PI/N,TEAL=[0,255,208],YEL=[255,212,0],GRN=[125,255,0],RC={0:TEAL,1:TEAL,2:GRN,3:YEL,4:YEL},out=[];
+  let seed=5;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  const ph=Array.from({length:NB},()=>[rnd()*6.283,rnd()*6.283,rnd()*6.283]);const ox=Math.floor((w-36)/2);
+  const level=(b,t)=>{const low=1-b/(NB-1),kick=Math.max(0,Math.cos(TP*8*t))**6,hat=Math.max(0,Math.cos(TP*16*t+1.2))**8;
+    let v=.35+.25*Math.sin(TP*3*t+ph[b][0])+.15*Math.sin(TP*7*t+ph[b][1])+.1*Math.sin(TP*11*t+ph[b][2])+kick*.55*low+hat*.35*(1-low);return Math.max(0,Math.min(1,v));};
+  const peaks=new Float32Array(NB);
+  for(let t=0;t<2*N;t++){const tt=t%N,f=newFrame(w,h);
+    for(let y=0;y<6;y++)for(let x=0;x<36;x++)if(R819_TXT[y][x]==="#"&&x+ox>=0&&x+ox<w)setPx(f,x+ox,y,TEAL);
+    for(let b=0;b<NB;b++){const n=Math.round(level(b,tt)*5);peaks[b]=Math.max(peaks[b]-.12,n);const x=ox+b*3;
+      for(let k=0;k<n;k++)for(let xx=x;xx<x+2;xx++)if(xx>=0&&xx<w)setPx(f,xx,h-1-k,RC[k]);
+      const p=Math.ceil(peaks[b]);if(p>n&&p>=1)for(let xx=x;xx<x+2;xx++)if(xx>=0&&xx<w)setPx(f,xx,h-p,RC[p-1].map(v=>v*.6));}
+    if(t>=N)out.push(f);}
+  return out;}
+const PRESETS={r749warp:{name:"route749 warp",gen:genR749Warp,delay:()=>clamp(Math.round(70/(+$("tUnit").value||10)),1,255)},r819eq:{name:"route81932 equalizer",gen:genR819Eq,delay:()=>clamp(Math.round(70/(+$("tUnit").value||10)),1,255)}};
 /* ============================================================ custom clocks */
 const CL={t:null,start:0,last:""};
 function renderClock(type){const now=new Date(),w=W(),h=H();const twelve=$("c12").checked;let hh=now.getHours();if(twelve){hh=hh%12||12;}const p2=n=>String(n).padStart(2,"0");
